@@ -1,0 +1,6 @@
+{
+  "name": "DeclarativePuzzle.Editor",
+  "rootNamespace": "DeclarativePuzzle.Editor",
+  "references": ["DeclarativePuzzle.Domain", "DeclarativePuzzle.Unity", "Unity.TextMeshPro"],
+  "includePlatforms": ["Editor"]
+}

@@ -1,0 +1,7 @@
+{
+  "name": "DeclarativePuzzle.PlayModeTests",
+  "references": ["DeclarativePuzzle.Domain", "DeclarativePuzzle.Presentation", "DeclarativePuzzle.Unity", "Unity.ugui", "Unity.TextMeshPro"],
+  "overrideReferences": true,
+  "precompiledReferences": ["nunit.framework.dll", "R3.dll"],
+  "optionalUnityReferences": ["TestAssemblies"]
+}

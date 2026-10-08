@@ -1,0 +1,6 @@
+{
+  "name": "DeclarativePuzzle.Application",
+  "rootNamespace": "DeclarativePuzzle.Application",
+  "references": ["DeclarativePuzzle.Domain"],
+  "noEngineReferences": true
+}

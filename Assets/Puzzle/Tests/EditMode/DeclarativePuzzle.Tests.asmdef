@@ -1,0 +1,8 @@
+{
+  "name": "DeclarativePuzzle.Tests",
+  "references": ["DeclarativePuzzle.Domain", "DeclarativePuzzle.Application", "DeclarativePuzzle.Presentation", "DeclarativePuzzle.Unity"],
+  "includePlatforms": ["Editor"],
+  "overrideReferences": true,
+  "precompiledReferences": ["nunit.framework.dll", "R3.dll", "Microsoft.Bcl.TimeProvider.dll"],
+  "optionalUnityReferences": ["TestAssemblies"]
+}

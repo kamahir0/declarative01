@@ -1,0 +1,8 @@
+{
+  "name": "DeclarativePuzzle.Unity",
+  "rootNamespace": "DeclarativePuzzle.Unity",
+  "references": [
+    "DeclarativePuzzle.Domain", "DeclarativePuzzle.Application", "DeclarativePuzzle.Presentation",
+    "Unity.ugui", "Unity.TextMeshPro", "Unity.InputSystem", "R3.Unity"
+  ]
+}
