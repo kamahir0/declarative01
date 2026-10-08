@@ -9,6 +9,7 @@ async function solve(page: Page) {
     const index = puzzleData.pieces.findIndex((p) => p.id === target.pieceId);
     await page.keyboard.press(String(index + 1));
     for (let i = 0; i < target.turns; i++) await page.keyboard.press('r');
+    await expect(page.getByRole('button', { name: /^Set / })).toBeEnabled();
     const piece = page.locator(`[data-piece="${target.pieceId}"]`);
     const x = Number(await piece.getAttribute('data-x'));
     const y = Number(await piece.getAttribute('data-y'));
@@ -28,6 +29,7 @@ test('mouse + keyboard, continuous rotation, overlaps, Return and restart', asyn
   await expect(page.locator('[data-piece="A"]')).toHaveAttribute('data-x', '2');
   for (let i = 0; i < 5; i++) await page.keyboard.press('q');
   await expect(page.locator('[data-piece="A"]')).toHaveAttribute('data-turns', '-5');
+  await expect(page.getByRole('button', { name: /^Set / })).toBeEnabled();
   await page.keyboard.press('Space');
   await expect(page.locator('[data-piece="A"]')).not.toHaveClass(/is-held/);
   await page.locator('[data-piece="A"] rect').first().click();
@@ -52,6 +54,8 @@ test('all rotations visually occupy the exact logical cells, including negative 
     await page.keyboard.press(String(index + 1));
     for (let turn = 0; turn >= -4; turn--) {
       const piece = page.locator(`[data-piece="${definition.id}"]`);
+      await expect(piece).toHaveAttribute('data-turns', String(turn));
+      await expect(piece.locator('[data-rotation-id]')).toHaveCount(0);
       const x = Number(await piece.getAttribute('data-x'));
       const y = Number(await piece.getAttribute('data-y'));
       const targets = getOccupiedCells(definition, { x, y }, turn).map((cell) => `${cell.x},${cell.y}`).sort();
@@ -105,7 +109,7 @@ test('Unity solution submits once, locks input, glows in order, and finishes', a
   expect(await page.evaluate(() => (window as unknown as { glowOrder: string[] }).glowOrder))
     .toEqual(puzzleData.pieces.map((piece) => piece.id));
   await expect(page.getByText('ぴったり、完成。')).toBeVisible();
-  await page.screenshot({ path: 'docs/images/finished.png', fullPage: true });
+  await page.screenshot({ path: test.info().outputPath('finished.png'), fullPage: true });
 });
 
 test('rejected or failed async requests keep the solution and allow retry; double submit is guarded', async ({ page }) => {
@@ -175,7 +179,7 @@ test('mobile touch controls and reduced motion finish without horizontal overflo
   await page.goto('/');
   await expect(page.locator('h1')).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(375);
-  await page.screenshot({ path: 'docs/images/mobile.png', fullPage: true });
+  await page.screenshot({ path: test.info().outputPath('mobile.png'), fullPage: true });
   await page.getByRole('button', { name: 'ピース A を持ち上げる', exact: true }).tap();
   await page.getByRole('button', { name: '左に90度回転', exact: true }).tap();
   await page.getByRole('button', { name: '上に移動', exact: true }).tap();
@@ -194,5 +198,5 @@ test('desktop initial screen', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto('/');
   await expect(page.locator('.stock-piece')).toHaveCount(9);
-  await page.screenshot({ path: 'docs/images/initial.png', fullPage: true });
+  await page.screenshot({ path: test.info().outputPath('initial.png'), fullPage: true });
 });

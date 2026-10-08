@@ -1,5 +1,7 @@
 # 宣言的なパズル設計の観察
 
+以下はGitタグ`react-baseline`（`49805e3`）で保存した初期版の設計記録です。回転入力を1回ずつ再生する追加実験は[回転列の実験](rotation-queue.md)を参照してください。
+
 ## 正規状態と射影
 
 ゲームの正規状態は、`pieces`、`holding`、`phase`の3つです。`useReducer`が保持し、純粋なReducerだけが更新します。パズル定義は状態の外に置き、ルール関数へ引数で渡します。標準の`gameReducer(state, action)`はサンプル定義に束縛した薄い関数です。異なる定義のテストには同じ`reduceGame`を使います。

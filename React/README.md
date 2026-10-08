@@ -39,6 +39,8 @@ Tabでボタンに移動した場合は、Enter・Spaceをそのボタンの標�
 
 持ち上げられるピースは1個だけです。移動・回転は盤面内に補正します。重なりを含む仮置きは可能で、重複セルには赤いマーカーが表示されます。重なったピースも一覧から選択できます。
 
+追加実験では、左右の回転を1回0.2秒で入力順に再生します。回転中の入力も列に追加するため、高速な右→左も両方表示されます。回転の再生中は移動・Set・Returnが無効になり、回転とRestartは引き続き操作できます。Restartは現在の回転と未再生の列を破棄します。
+
 全9個を配置し、36セルを重複・不足なく埋め、持ち上げていない場合にSubmitが有効になります。提出は650ms待つローカルのPromise処理です。成功するとA〜Iが順に発光し、最後の発光終了後にFinishedになります。失敗時は配置を維持して再提出できます。やり直すと処理・演出を中断して新しいゲームを始めます。
 
 動作確認用の解は[Unity版のサンプル解](../Unity/docs/sample-solution.md)と共通です。
@@ -54,9 +56,23 @@ Tabでボタンに移動した場合は、Enter・Spaceをそのボタンの標�
 | `src/game/selectors.ts` | Holdingを優先した表示と重複の射影 |
 | `src/components/` | 盤面、ピース一覧、操作、非同期結果のdispatch |
 | `src/animations/celebration.ts` | 発光Variants、発光時間・間隔 |
+| `src/animations/rotationPlayback.ts` | 回転列、開始・終了姿勢、完了通知を扱う表示用Reducer |
 | `src/services/submitPuzzle.ts` | PromiseとAbortSignalを使う疑似提出API |
 
 設計上の判断と比較は[設計の観察](docs/architecture.md)を参照してください。
+
+## ベースラインと追加実験
+
+初期React版はGitタグ **`react-baseline`**（`49805e3`）に保存しています。追加実験は`experiment/react-rotation-queue`ブランチです。比較する場合は、別の作業ディレクトリでベースラインを起動できます。
+
+```sh
+git worktree add --detach ../declarative01-react-baseline react-baseline
+cd ../declarative01-react-baseline/React
+npm ci
+npm run dev -- --port 5174
+```
+
+回転列の状態・責務、累積回転数で失われる情報、宣言的APIを選んだ理由、変更規模は[回転列の実験](docs/rotation-queue.md)にまとめています。
 
 ## 検証
 
@@ -67,8 +83,10 @@ npx playwright install chromium
 npm run test:e2e
 ```
 
-Vitest **40件**、Playwright **8件**、TypeScript検査と本番ビルドが成功しています。VitestではUnityのマスターとの一致、負の回転・累積回転、端での位置補正、完成・重複・盤面外判定、全フェーズの入力制限、失敗復帰、提出の中断を検証します。マスターとの一致テストは隣の`Unity/`を読み取ります。
+Vitest **50件**、Playwright **15件**、TypeScript検査と本番ビルドが成功しています。VitestではUnityのマスターとの一致、負の回転・累積回転、端での位置補正、完成・重複・盤面外判定、全フェーズの入力制限、失敗復帰、提出の中断を検証します。追加した10件は回転列の保存、再生中の追加、完了IDの照合、境界補正、操作の待機を検証します。マスターとの一致テストは隣の`Unity/`を読み取ります。
 
 Playwrightでは盤面・一覧の選択、マウスからキーボードへの切替、実際のセル描画位置、Unityの解の再現、A〜Iの発光順、送信失敗・受付拒否からの再提出、多重送信防止、やり直し時のキャンセル、Tab操作、375px幅のタッチ操作とReduced Motion設定でのFinished到達を検証します。対象ブラウザはChromiumです。
+
+追加した7件は同一Reactバッチ内の右→左、再生中の入力追加、0.2秒の再生時間、複数周の混合入力、壁際の最終位置、Restartの中断、Set後の再選択を実際のDOM角度で検証します。実行時のスクリーンショットは`test-results/`に出力し、保存済みのベースライン画像を上書きしません。
 
 ![完成画面](docs/images/finished.png)

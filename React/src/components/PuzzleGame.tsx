@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import { puzzleData } from '../game/puzzleData';
-import { createInitialState, gameReducer } from '../game/reducer';
+import { createRotationPlaybackState, rotationPlaybackReducer } from '../animations/rotationPlayback';
 import { canSubmit, getBoardAnalysis, isCompleted } from '../game/rules';
 import type { GameAction } from '../game/types';
 import { submitPuzzle } from '../services/submitPuzzle';
@@ -16,19 +16,21 @@ export function PuzzleGame({ submit = submitPuzzle }: { submit?: SubmitPuzzle })
 }
 
 function PuzzleSession({ submit, onRestart }: { submit: SubmitPuzzle; onRestart: () => void }) {
-  const [state, dispatch] = useReducer(gameReducer, undefined, () => createInitialState());
+  const [playback, dispatch] = useReducer(rotationPlaybackReducer, undefined, () => createRotationPlaybackState());
+  const { game: state, rotations } = playback;
+  const rotationPlaying = rotations.length > 0;
   const [error, setError] = useState<string | null>(null);
   const request = useRef<AbortController | null>(null);
   const navigatingWithTab = useRef(false);
   const analysis = getBoardAnalysis(state, puzzleData);
   const completed = isCompleted(state, puzzleData);
-  const ready = canSubmit(state, puzzleData);
+  const ready = !rotationPlaying && canSubmit(state, puzzleData);
 
   useEffect(() => () => { request.current?.abort(); }, []);
 
   const handleSubmit = useCallback(async () => {
     // The ref closes the window before React renders SUBMIT_STARTED (double-click / Enter repeat).
-    if (!canSubmit(state, puzzleData) || request.current) return;
+    if (rotationPlaying || !canSubmit(state, puzzleData) || request.current) return;
     const controller = new AbortController();
     request.current = controller;
     setError(null);
@@ -49,7 +51,7 @@ function PuzzleSession({ submit, onRestart }: { submit: SubmitPuzzle; onRestart:
     } finally {
       if (request.current === controller) request.current = null;
     }
-  }, [state, submit]);
+  }, [state, rotationPlaying, submit]);
 
   useEffect(() => {
     const onPointerDown = () => { navigatingWithTab.current = false; };
@@ -97,7 +99,8 @@ function PuzzleSession({ submit, onRestart }: { submit: SubmitPuzzle; onRestart:
   const status = state.phase === 'submitting' ? '過不足を確認しています…'
     : state.phase === 'celebrating' ? 'すべての形が、ひとつに。'
       : state.phase === 'finished' ? 'Finished — 完成しました。'
-        : state.holding ? `ピース ${state.holding.pieceId} を移動・回転して、Setで確定。`
+        : rotationPlaying ? `回転を順に再生中（残り ${rotations.length} 回）。左右回転で追加できます。`
+          : state.holding ? `ピース ${state.holding.pieceId} を移動・回転して、Setで確定。`
           : completed ? 'すべてぴったり。Submitで完成を確かめよう。'
             : '9つの形で、36マスを埋めてみよう。';
 
@@ -112,7 +115,8 @@ function PuzzleSession({ submit, onRestart }: { submit: SubmitPuzzle; onRestart:
         <button className="restart-button" type="button" onClick={onRestart}>↻ やり直す</button></div>
       <div className="game-layout">
         <section className="canvas-panel" aria-label="盤面と提出">
-          <PuzzleBoard state={state} definition={puzzleData} dispatch={dispatch} />
+          <PuzzleBoard state={state} definition={puzzleData} dispatch={dispatch} rotation={rotations[0]}
+            onRotationFinished={(id) => dispatch({ type: 'ROTATION_FINISHED', id })} />
           <div className="progress-row"><div><strong>{analysis.coveredCells.toString().padStart(2, '0')}</strong>
             <span> / {analysis.totalCells} マス</span></div><span className="progress-detail">
               {analysis.placedPieces} / {analysis.totalPieces} 配置済み
@@ -129,7 +133,7 @@ function PuzzleSession({ submit, onRestart }: { submit: SubmitPuzzle; onRestart:
           {error && <p className="submission-error" role="alert">{error}</p>}
         </section>
         <aside className="tools-panel"><PieceStock state={state} definition={puzzleData} dispatch={dispatch} />
-          <OperationControls state={state} dispatch={dispatch} /></aside>
+          <OperationControls state={state} dispatch={dispatch} rotationPlaying={rotationPlaying} /></aside>
       </div>
       <section className="how-to" aria-label="遊び方"><span className="how-to-title">HOW TO PLAY</span>
         <p><b>01</b> 形を選ぶ <span>→</span> <b>02</b> 移動・回転 <span>→</span> <b>03</b> Setで置く <span>→</span> <b>04</b> Submit</p>

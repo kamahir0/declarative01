@@ -1,12 +1,14 @@
 import type { Dispatch } from 'react';
 import { motion } from 'motion/react';
+import type { RotationStep } from '../animations/rotationPlayback';
 import { cellKey } from '../game/rules';
 import { getDisplayedPiece, getDisplayOccupancy } from '../game/selectors';
 import type { GameAction, GameState, PuzzleDefinition } from '../game/types';
 import { CELL_SIZE, Piece } from './Piece';
 
-export function PuzzleBoard({ state, definition, dispatch }: {
+export function PuzzleBoard({ state, definition, dispatch, rotation, onRotationFinished }: {
   state: GameState; definition: PuzzleDefinition; dispatch: Dispatch<GameAction>;
+  rotation?: RotationStep; onRotationFinished?: (id: number) => void;
 }) {
   const occupancy = getDisplayOccupancy(state, definition);
   const cells = Array.from({ length: definition.width * definition.height }, (_, index) => ({
@@ -28,6 +30,8 @@ export function PuzzleBoard({ state, definition, dispatch }: {
           return <Piece key={piece.id} piece={piece} {...displayed} boardHeight={definition.height}
             phase={state.phase} index={index} disabled={state.phase !== 'playing' || state.holding !== null}
             onPickUp={() => dispatch({ type: 'PICK_UP', pieceId: piece.id })}
+            rotation={rotation?.to.pieceId === piece.id ? rotation : undefined}
+            onRotationFinished={onRotationFinished}
             onCelebrationFinished={index === definition.pieces.length - 1
               ? () => dispatch({ type: 'CELEBRATION_FINISHED' }) : undefined} />;
         })}
