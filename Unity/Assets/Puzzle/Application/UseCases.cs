@@ -31,7 +31,7 @@ namespace DeclarativePuzzle.Application
     public sealed class SpinUseCase : StateUseCase
     {
         public SpinUseCase(IGameRepository repository) : base(repository) { }
-        public bool Execute() => Commit(GameRules.Spin);
+        public bool Execute(RotationDirection direction = RotationDirection.Clockwise) => Commit(s => GameRules.Spin(s, direction));
     }
     public sealed class SetUseCase : StateUseCase
     {

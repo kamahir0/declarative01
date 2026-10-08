@@ -11,7 +11,7 @@ namespace DeclarativePuzzle.Presentation
     {
         public sealed record PickUp(string PieceId) : PuzzleIntent;
         public sealed record Move(Cell Direction) : PuzzleIntent;
-        public sealed record Spin : PuzzleIntent;
+        public sealed record Spin(RotationDirection Direction = RotationDirection.Clockwise) : PuzzleIntent;
         public sealed record Set : PuzzleIntent;
         public sealed record ReturnToStock : PuzzleIntent;
         public sealed record Submit : PuzzleIntent;
@@ -24,6 +24,8 @@ namespace DeclarativePuzzle.Presentation
         Observable<PuzzleIntent> Intents { get; }
         void Render(PuzzleViewState state);
         void PlayFeedback(FeedbackKind feedback);
+        void QueueRotation(string pieceId, RotationDirection direction, PieceRenderState target);
+        void CancelAnimations();
         Task PlayCelebrationAsync(ValueList<string> pieceIds, CancellationToken cancellationToken);
     }
 
@@ -85,11 +87,20 @@ namespace DeclarativePuzzle.Presentation
             {
                 case PuzzleIntent.PickUp pick: changed = useCases.PickUp.Execute(pick.PieceId); feedback = FeedbackKind.PickUp; break;
                 case PuzzleIntent.Move move: changed = useCases.Move.Execute(move.Direction); feedback = FeedbackKind.Move; break;
-                case PuzzleIntent.Spin _: changed = useCases.Spin.Execute(); feedback = FeedbackKind.Spin; break;
+                case PuzzleIntent.Spin spin:
+                    changed = useCases.Spin.Execute(spin.Direction); feedback = FeedbackKind.Spin;
+                    if (changed)
+                    {
+                        var state = ViewStateProjection.From(reader.Load());
+                        var piece = System.Linq.Enumerable.First(state.Pieces, p => p.PieceId == state.HoldingId);
+                        view.QueueRotation(piece.PieceId, spin.Direction, ViewStateProjection.Piece(state, piece));
+                    }
+                    break;
                 case PuzzleIntent.Set _: changed = useCases.Set.Execute(); feedback = FeedbackKind.Set; break;
                 case PuzzleIntent.ReturnToStock _: changed = useCases.ReturnToStock.Execute(); feedback = FeedbackKind.Return; break;
                 case PuzzleIntent.Restart _: changed = useCases.Restart.Execute(); feedback = FeedbackKind.Restart; break;
             }
+            if (changed && intent is PuzzleIntent.Restart) view.CancelAnimations();
             Render();
             view.PlayFeedback(changed ? feedback : FeedbackKind.Blocked);
         }
@@ -100,6 +111,7 @@ namespace DeclarativePuzzle.Presentation
             disposed = true;
             subscription.Dispose();
             lifetime.Cancel();
+            view.CancelAnimations();
             lifetime.Dispose();
         }
     }

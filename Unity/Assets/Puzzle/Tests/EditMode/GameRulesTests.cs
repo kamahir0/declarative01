@@ -31,6 +31,26 @@ namespace DeclarativePuzzle.Tests
             Assert.That(list[0], Is.SameAs(piece));
         }
         [Test] public void StatesHaveStructuralValueEquality() => Assert.That(GameState.Create(Squares()), Is.EqualTo(GameState.Create(Squares())));
+        [Test] public void LeftRotationWrapsAndOppositeRotationsCancelWithoutChangingPuzzle()
+        {
+            var original = GameRules.PickUp(GameState.Create(Squares()), "A");
+            var left = GameRules.Spin(original, RotationDirection.CounterClockwise);
+            Assert.That(((InteractionState.Holding)left.Interaction).Rotation, Is.EqualTo(QuarterTurn.West));
+            Assert.That(left.Puzzle, Is.SameAs(original.Puzzle));
+            Assert.That(GameRules.Spin(left), Is.EqualTo(original));
+            for (var i = 0; i < 3; i++) left = GameRules.Spin(left, RotationDirection.CounterClockwise);
+            Assert.That(left, Is.EqualTo(original));
+        }
+        [Test] public void LeftRotationUsesTheSameFitAndLifecycleConditionsAsRightRotation()
+        {
+            var definition = new PuzzleDefinition(4, 1, new[]
+            { new PieceDefinition("A", new[] { new Cell(0,0),new Cell(1,0),new Cell(2,0),new Cell(3,0) }) });
+            var state = GameRules.PickUp(GameState.Create(definition), "A");
+            Assert.That(GameRules.Spin(state, RotationDirection.CounterClockwise), Is.SameAs(state));
+            Assert.That(GameRules.Spin(state), Is.SameAs(state));
+            var locked = state with { Phase = SubmissionPhase.Submitting };
+            Assert.That(GameRules.Spin(locked, RotationDirection.CounterClockwise), Is.SameAs(locked));
+        }
         [Test] public void InvalidMasterDataIsRejected()
         {
             Assert.Throws<ArgumentException>(() => new PieceDefinition("A", new[] { new Cell(0,0), new Cell(2,0) }));

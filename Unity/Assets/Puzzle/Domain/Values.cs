@@ -41,6 +41,7 @@ namespace DeclarativePuzzle.Domain
     }
 
     public enum QuarterTurn { North, East, South, West }
+    public enum RotationDirection { CounterClockwise = -1, Clockwise = 1 }
     public enum SubmissionPhase { Playing, Submitting, Celebrating, Finished }
 
     public sealed record PieceDefinition

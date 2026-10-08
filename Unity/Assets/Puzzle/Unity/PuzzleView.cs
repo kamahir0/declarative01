@@ -22,7 +22,7 @@ namespace DeclarativePuzzle.Unity
         public RectTransform CelebrationLayer;
         public PieceView[] Pieces;
         public UnityEngine.UI.Button[] MoveButtons;
-        public UnityEngine.UI.Button Spin, Set, Return, Submit, Restart;
+        public UnityEngine.UI.Button Spin, SpinLeft, Set, Return, Submit, Restart;
         public TMP_Text Coverage, PieceCount, Holding, Message, SubmitLabel, PhaseLabel, OverlapLabel;
         public TMP_Text[] ConflictMarkers;
         public RectTransform ProgressFill;
@@ -39,6 +39,15 @@ namespace DeclarativePuzzle.Unity
         PuzzleViewState current;
         string feedbackPiece;
         Tween shakeTween, progressTween;
+        readonly RotationPlayback rotations = new RotationPlayback();
+        public int PendingRotations => rotations.PendingCount;
+        public void QueueRotation(string pieceId, RotationDirection direction, PieceRenderState target)
+            => rotations.Enqueue(ui.Pieces.First(p => p.Id == pieceId), direction, target);
+        public void CancelAnimations()
+        {
+            rotations.Cancel();
+            if (ui?.Pieces != null) foreach (var piece in ui.Pieces) if (piece != null) piece.StopAnimations();
+        }
         readonly System.Collections.Generic.List<GameObject> particles = new System.Collections.Generic.List<GameObject>();
         public Observable<PuzzleIntent> Intents => intents;
         public void Configure(PuzzleUiReferences references) => ui = references;
@@ -58,8 +67,18 @@ namespace DeclarativePuzzle.Unity
                 ui.MoveButtons[i].OnClickAsObservable().Subscribe(_ => intents.OnNext(new PuzzleIntent.Move(direction))).AddTo(subscriptions);
             }
             Bind(ui.Spin, new PuzzleIntent.Spin()); Bind(ui.Set, new PuzzleIntent.Set());
+            Bind(ui.SpinLeft, new PuzzleIntent.Spin(RotationDirection.CounterClockwise));
             Bind(ui.Return, new PuzzleIntent.ReturnToStock()); Bind(ui.Submit, new PuzzleIntent.Submit());
             Bind(ui.Restart, new PuzzleIntent.Restart());
+            // Action callbacks preserve the order of multiple keyboard events within one frame.
+            var rotateInput = new InputAction("Rotate", InputActionType.PassThrough, "<Keyboard>/r");
+            rotateInput.AddBinding("<Keyboard>/q");
+            Observable.FromEvent<InputAction.CallbackContext>(h => rotateInput.performed += h, h => rotateInput.performed -= h)
+                .Where(context => context.ReadValue<float>() > .5f)
+                .Subscribe(context => intents.OnNext(new PuzzleIntent.Spin(context.control.name == "q"
+                    ? RotationDirection.CounterClockwise : RotationDirection.Clockwise))).AddTo(subscriptions);
+            Disposable.Create(() => rotateInput.Dispose()).AddTo(subscriptions);
+            rotateInput.Enable();
             Observable.EveryUpdate().Subscribe(_ => ReadKeyboard()).AddTo(subscriptions);
         }
         void Bind(UnityEngine.UI.Button button, PuzzleIntent intent)
@@ -73,7 +92,6 @@ namespace DeclarativePuzzle.Unity
             if (keys.upArrowKey.wasPressedThisFrame || keys.wKey.wasPressedThisFrame) intents.OnNext(new PuzzleIntent.Move(Directions[1]));
             if (keys.downArrowKey.wasPressedThisFrame || keys.sKey.wasPressedThisFrame) intents.OnNext(new PuzzleIntent.Move(Directions[2]));
             if (keys.rightArrowKey.wasPressedThisFrame || keys.dKey.wasPressedThisFrame) intents.OnNext(new PuzzleIntent.Move(Directions[3]));
-            if (keys.rKey.wasPressedThisFrame) intents.OnNext(new PuzzleIntent.Spin());
             if (keys.spaceKey.wasPressedThisFrame && current.CanManipulate) intents.OnNext(new PuzzleIntent.Set());
             if (keys.escapeKey.wasPressedThisFrame || keys.backspaceKey.wasPressedThisFrame) intents.OnNext(new PuzzleIntent.ReturnToStock());
             if (keys.enterKey.wasPressedThisFrame || keys.numpadEnterKey.wasPressedThisFrame)
@@ -89,6 +107,7 @@ namespace DeclarativePuzzle.Unity
                 ui.Pieces.First(v => v.Id == piece.PieceId).Render(ViewStateProjection.Piece(state, piece));
             foreach (var button in ui.MoveButtons) button.interactable = state.CanManipulate;
             ui.Spin.interactable = ui.Set.interactable = ui.Return.interactable = state.CanManipulate;
+            ui.SpinLeft.interactable = state.CanManipulate;
             ui.Submit.interactable = state.CanSubmit; ui.Restart.interactable = state.CanRestart;
             ui.Coverage.text = $"{state.Board.CoveredCells}<size=22> / {state.Board.TotalCells}</size>";
             ui.PieceCount.text = $"{state.Board.PlacedPieces}<size=18> / {state.Board.TotalPieces} ピース</size>";
@@ -124,7 +143,7 @@ namespace DeclarativePuzzle.Unity
             {
                 case FeedbackKind.PickUp: target?.Punch(.13f); ui.Audio.Play(72); break;
                 case FeedbackKind.Move: target?.Punch(.035f); ui.Audio.Play(67, .045f); break;
-                case FeedbackKind.Spin: target?.Punch(.11f); ui.Audio.Play(76, .09f); break;
+                case FeedbackKind.Spin: ui.Audio.Play(76, .09f); break;
                 case FeedbackKind.Set: target?.Punch(.085f); ui.Audio.Play(60); break;
                 case FeedbackKind.Return: ui.Audio.Play(55, .08f); break;
                 case FeedbackKind.Blocked:
@@ -139,6 +158,7 @@ namespace DeclarativePuzzle.Unity
 
         public async Task PlayCelebrationAsync(ValueList<string> pieceIds, CancellationToken cancellationToken)
         {
+            await rotations.WaitAsync(cancellationToken);
             var notes = new[] { 60, 62, 64, 65, 67, 69, 71, 72, 76 };
             for (var i = 0; i < pieceIds.Count; i++)
             {
@@ -173,6 +193,7 @@ namespace DeclarativePuzzle.Unity
         void ClearParticles() { foreach (var particle in particles) if (particle != null) Destroy(particle); particles.Clear(); }
         public void Shutdown()
         {
+            CancelAnimations();
             subscriptions?.Dispose(); subscriptions = null;
             intents?.Dispose(); intents = null;
             shakeTween?.Kill(); progressTween?.Kill(); ClearParticles();
@@ -180,5 +201,7 @@ namespace DeclarativePuzzle.Unity
             foreach (var piece in ui.Pieces) if (piece != null) piece.StopAnimations();
             ui.Board.localRotation = Quaternion.identity; ui.Board.localScale = Vector3.one;
         }
+        void OnDisable() => CancelAnimations();
+        void OnDestroy() => CancelAnimations();
     }
 }

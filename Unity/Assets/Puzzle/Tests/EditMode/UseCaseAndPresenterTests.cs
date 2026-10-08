@@ -39,6 +39,10 @@ namespace DeclarativePuzzle.Tests
             public TaskCompletionSource<bool> Celebration = new TaskCompletionSource<bool>();
             public int CelebrationCalls;
             public ValueList<string> GlowIds;
+            public List<RotationDirection> Rotations = new List<RotationDirection>();
+            public int Cancellations;
+            public void QueueRotation(string pieceId, RotationDirection direction, PieceRenderState target) => Rotations.Add(direction);
+            public void CancelAnimations() => Cancellations++;
             public void Render(PuzzleViewState state) => Renders.Add(state);
             public void PlayFeedback(FeedbackKind feedback) { }
             public async Task PlayCelebrationAsync(ValueList<string> ids, CancellationToken cancellationToken)
@@ -55,6 +59,19 @@ namespace DeclarativePuzzle.Tests
             GameRules.PickUp(repository.Load(), "A"); Assert.That(repository.Saves, Is.Zero);
             new PickUpUseCase(repository).Execute("A"); Assert.That(repository.Saves, Is.EqualTo(1));
             Assert.That(repository.Load().Interaction, Is.TypeOf<InteractionState.Holding>());
+        }
+        [Test] public async Task PresenterCommitsEveryRotationAndQueuesItsDirectionBeforeRendering()
+        {
+            var repository = new Repository(GameRules.PickUp(GameState.Create(GameRulesTests.Squares()), "A"));
+            using var view = new View();
+            using var presenter = new PuzzlePresenter(repository, new PuzzleUseCases(repository, new Gateway()), view, e => Assert.Fail(e.ToString()));
+            var directions = new[] { RotationDirection.CounterClockwise, RotationDirection.Clockwise, RotationDirection.Clockwise };
+            foreach (var direction in directions) await presenter.HandleAsync(new PuzzleIntent.Spin(direction));
+            Assert.That(repository.Saves, Is.EqualTo(3)); Assert.That(view.Rotations, Is.EqualTo(directions));
+            Assert.That(((InteractionState.Holding)repository.Load().Interaction).Rotation, Is.EqualTo(QuarterTurn.East));
+            await presenter.HandleAsync(new PuzzleIntent.Restart()); Assert.That(view.Cancellations, Is.EqualTo(1));
+            await presenter.HandleAsync(new PuzzleIntent.Spin()); Assert.That(view.Rotations.Count, Is.EqualTo(3));
+            presenter.Dispose(); Assert.That(view.Cancellations, Is.EqualTo(2));
         }
         [Test] public async Task IncompleteSubmissionDoesNotCallGateway()
         {

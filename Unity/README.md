@@ -21,13 +21,16 @@
 |---|---|
 | ピースを持ち上げる | 盤面または右のピース一覧をクリック / `1`〜`9` |
 | 1マス移動 | 矢印ボタン / `↑↓←→` / `WASD` |
-| 時計回りに90度回転 | 回転ボタン / `R` |
+| 時計回りに90度回転 | 右回転ボタン / `R` |
+| 反時計回りに90度回転 | 左回転ボタン / `Q` |
 | 配置を確定 | Set / `Space` / 持ち上げ中の`Enter` |
 | 持ちピースに戻す | 戻す / `Esc` / `Backspace` |
 | 完成した配置を提出 | Submit / 持ち上げていないときの`Enter` |
 | 最初から遊ぶ | やり直す |
 
 持ち上げ中は、元の所属・配置が確定状態に残ります。表示はHoldingを優先するため、同じピースが二重に描かれることはありません。Setで配置を更新し、戻す操作で持ちピースへ戻します。移動は盤面内に制限され、回転時は必要に応じて原点を補正します。
+
+回転の論理状態は入力時に更新します。視覚的な回転は1回0.2秒で、再生中の入力も画面全体のFIFOに追加し、入力順にすべて再生します。Restart、持ちピースへの返却、シーン終了時には残った回転を中断します。追加実験の設計と検証は [回転キューの実験レポート](docs/rotation-queue-experiment.md) を参照してください。
 
 重なりは仮置きとして許可します。完成条件は全ピースの配置、盤面全セルの充填、重なり・盤面外セルの不存在です。持ち上げ中や送信・演出中は提出できません。指定された絵柄や正解座標はなく、条件を満たす配置ならどれも正解です。
 
@@ -48,7 +51,7 @@
 
 ## テスト
 
-Unityの `Window > General > Test Runner` からEditMode / PlayModeの両方を実行できます。**EditMode 31件、PlayMode 5件が成功**しています。検証内容は [docs/verification.md](docs/verification.md) を参照してください。
+Unityの `Window > General > Test Runner` からEditMode / PlayModeの両方を実行できます。**EditMode 34件、PlayMode 13件が成功**しています。検証内容は [docs/verification.md](docs/verification.md) を参照してください。
 
 Unity CLIとPipelineが接続された実行中のEditorからは次を使えます。完了状態は `unity command test_status --caller plugin --skill unity-cli --format json` で確認します。
 

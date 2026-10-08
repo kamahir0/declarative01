@@ -29,6 +29,12 @@ namespace DeclarativePuzzle.Unity
         Tween punchTween;
         Tween glowTween;
         PieceRenderState lastRender;
+        PieceRenderState desiredRender;
+        Tween rotationTween;
+        int reservedRotations;
+        internal int AnimationGeneration { get; private set; }
+        public const float RotationSeconds = .2f;
+        public bool CanPlayRotation => isActiveAndEnabled && visual != null && visual.gameObject.activeSelf;
 
         public string Id => pieceId;
         public void Configure(string id, RectTransform root, RectTransform[] cellRects, UnityEngine.UI.Image[] images,
@@ -49,6 +55,7 @@ namespace DeclarativePuzzle.Unity
         /// <summary>Pose and visibility always come from this value, regardless of the preceding operations.</summary>
         public void Render(PieceRenderState state)
         {
+            desiredRender = state;
             cardButton.interactable = state.CanPick;
             foreach (var button in tileButtons) button.interactable = state.CanPick;
             cardTitle.color = tint * new Color(.64f, .64f, .64f, 1);
@@ -56,7 +63,20 @@ namespace DeclarativePuzzle.Unity
             status.text = placement is PieceViewState.InStock ? "未配置" : placement is PieceViewState.Held ? "選択中" : "配置済み";
             status.color = placement is PieceViewState.Held ? Palette.Green : Palette.Muted;
             cardImage.color = placement is PieceViewState.Held ? Color.Lerp(Palette.Paper, tint, .19f) : Palette.Paper;
+            // Update logical UI immediately; queued poses must remain visible in input order.
+            if (placement is PieceViewState.InStock)
+            {
+                visual.gameObject.SetActive(false);
+                StopAnimations(); desiredRender = state; lastRender = state;
+                return;
+            }
+            if (reservedRotations > 0) return;
             if (lastRender == state) return;
+            ApplyPose(state, true);
+        }
+        void ApplyPose(PieceRenderState state, bool animateMove)
+        {
+            var placement = state.Placement;
             var wasVisible = visual.gameObject.activeSelf;
             if (placement is PieceViewState.InStock)
             {
@@ -69,9 +89,10 @@ namespace DeclarativePuzzle.Unity
             var shape = GameRules.Shape(definition, rotation);
             var width = shape.Max(c => c.X) + 1; var height = shape.Max(c => c.Y) + 1;
             var target = new Vector2((origin.X + width * .5f) * cellSize, (origin.Y + height * .5f) * cellSize);
+            visual.localRotation = Quaternion.identity;
             visual.sizeDelta = new Vector2(width, height) * cellSize;
             moveTween?.Kill();
-            if (!wasVisible || !UnityEngine.Application.isPlaying) visual.anchoredPosition = target;
+            if (!animateMove || !wasVisible || !UnityEngine.Application.isPlaying) visual.anchoredPosition = target;
             else moveTween = DOTween.To(() => visual.anchoredPosition, p => visual.anchoredPosition = p, target, .12f)
                 .SetEase(Ease.OutCubic).SetLink(gameObject);
             visual.gameObject.SetActive(true);
@@ -86,8 +107,32 @@ namespace DeclarativePuzzle.Unity
             lastRender = state;
         }
 
+        internal void ReserveRotation() => reservedRotations++;
+        internal Tween StartRotation(RotationDirection direction, PieceRenderState target)
+        {
+            moveTween?.Complete(); punchTween?.Kill(); visual.localScale = Vector3.one;
+            var held = (PieceViewState.Held)target.Placement;
+            var shape = GameRules.Shape(definition, held.Rotation);
+            var center = new Vector2(held.Origin.X + (shape.Max(c => c.X) + 1) * .5f,
+                held.Origin.Y + (shape.Max(c => c.Y) + 1) * .5f) * cellSize;
+            rotationTween = DOTween.Sequence()
+                .Join(visual.DOLocalRotate(new Vector3(0, 0, -90 * (int)direction), RotationSeconds, RotateMode.FastBeyond360).SetEase(Ease.OutCubic))
+                .Join(DOTween.To(() => visual.anchoredPosition, p => visual.anchoredPosition = p, center, RotationSeconds).SetEase(Ease.OutCubic))
+                .SetUpdate(true).SetLink(gameObject);
+            return rotationTween;
+        }
+        internal void CompleteRotation(PieceRenderState target, bool completed)
+        {
+            rotationTween = null;
+            reservedRotations = Math.Max(0, reservedRotations - 1);
+            if (!completed || !CanPlayRotation) return;
+            ApplyPose(target, false); // Bake the quarter turn into canonical cell geometry.
+            if (reservedRotations == 0 && desiredRender != null) ApplyPose(desiredRender, false);
+        }
+
         public void Punch(float strength = .1f)
         {
+            if (reservedRotations > 0) return;
             if (!visual.gameObject.activeSelf) return;
             punchTween?.Kill(); visual.localScale = Vector3.one;
             punchTween = visual.DOPunchScale(new Vector3(strength, -strength * .6f, 0), .22f, 5, .45f)
@@ -113,10 +158,15 @@ namespace DeclarativePuzzle.Unity
         }
         public void StopAnimations()
         {
+            AnimationGeneration++;
+            reservedRotations = 0; desiredRender = null;
+            rotationTween?.Kill(false); rotationTween = null;
             moveTween?.Kill(); punchTween?.Kill(); glowTween?.Kill();
-            if (visual != null) visual.localScale = Vector3.one;
+            if (visual != null) { visual.localScale = Vector3.one; visual.localRotation = Quaternion.identity; }
             lastRender = null;
         }
+        void OnDisable() => StopAnimations();
+        void OnDestroy() => StopAnimations();
     }
 
     static class Palette

@@ -33,3 +33,5 @@ Unity **6000.6.4f1**で`Unity/`を開き、`Assets/Puzzle/Scenes/PolyGrid.unity`
 両版の盤面・ピース形状・色・左下原点の座標は共通です。重なりを含む仮置きを許容し、完成・占有状況・提出可否を状態から導出します。[動作確認用の解](Unity/docs/sample-solution.md)も共通です。
 
 React版は左右回転と累積回転数を使用し、論理的な4方向とアニメーションの角度を分けています。UIフレームワークによって減った状態同期の処理と、回転表示・非同期処理・入力に残る複雑さを比較します。宣言的な表現のためだけの仕組みは作らず、命令的な処理が素朴な場面ではその使用を許容します。
+
+Unity版にもQでの左回転を追加しました。入力された回転をすべて0.2秒ずつ順番に再生する追加実験は [Unity版の回転キュー実験](Unity/docs/rotation-queue-experiment.md) にまとめています。変更前のUnity版はGitタグ `unity-baseline-before-rotation-queue` に保存しています。

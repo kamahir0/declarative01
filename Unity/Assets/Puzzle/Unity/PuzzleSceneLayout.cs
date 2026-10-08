@@ -64,13 +64,14 @@ namespace DeclarativePuzzle.Unity
             var moveButtons = new List<UnityEngine.UI.Button>();
             for (var i = 0; i < arrows.Length; i++)
                 moveButtons.Add(ActionButton("Move" + i, page, font, arrows[i], 768 + i * 57, 689, 49, 49, Palette.Paper, Palette.Ink, out _));
-            var spin = ActionButton("Spin", page, font, "回転  /  R", 1008, 689, 138, 49, Palette.Paper, Palette.Ink, out _);
-            var back = ActionButton("ReturnToStock", page, font, "戻す  /  Esc", 1160, 689, 208, 49, Palette.Paper, Palette.Ink, out _);
+            var spinLeft = ActionButton("SpinLeft", page, font, "左 / Q", 1008, 689, 90, 49, Palette.Paper, Palette.Ink, out _);
+            var spin = ActionButton("Spin", page, font, "右 / R", 1110, 689, 90, 49, Palette.Paper, Palette.Ink, out _);
+            var back = ActionButton("ReturnToStock", page, font, "戻す / Esc", 1212, 689, 156, 49, Palette.Paper, Palette.Ink, out _);
             var set = ActionButton("Set", page, font, "Set  /  配置", 768, 765, 192, 61, Palette.Green, Color.white, out _);
             var submit = ActionButton("Submit", page, font, "Submit  /  提出", 978, 765, 250, 61, Palette.Ink, Color.white, out var submitLabel);
             var restart = ActionButton("Restart", page, font, "やり直す", 1246, 765, 122, 61, Palette.Paper, Palette.Muted, out _);
-            foreach (var button in moveButtons.Concat(new[] { spin, back, set, submit })) button.interactable = false;
-            Text("KeyboardHelp", page, font, "↑↓←→ / WASD  移動     R  回転     Space  Set     Esc  戻す     Enter  Submit", 12, Palette.Muted, 74, 822, 690, 28);
+            foreach (var button in moveButtons.Concat(new[] { spinLeft, spin, back, set, submit })) button.interactable = false;
+            Text("KeyboardHelp", page, font, "↑↓←→ / WASD  移動    Q / R  左右回転    Space  Set    Esc  戻す    Enter  Submit", 11, Palette.Muted, 74, 822, 690, 28);
             Panel("StatusDot", page, Palette.Green, 74, 870, 7, 7, 4);
             var message = Text("Message", page, font, "ピースを選んで、盤面に置いてみましょう。", 17, Palette.Ink, 96, 858, 1272, 34);
             var celebration = Fill("Celebration", page);
@@ -78,7 +79,7 @@ namespace DeclarativePuzzle.Unity
             {
                 Font = font, Page = page, GridLayer = gridLayer, PieceLayer = pieceLayer, MarkerLayer = markerLayer,
                 ProgressTrack = progressTrack, Subtitle = subtitle, Board = board, CelebrationLayer = celebration, Pieces = pieces, MoveButtons = moveButtons.ToArray(),
-                Spin = spin, Set = set, Return = back, Submit = submit, Restart = restart, Coverage = coverage, PieceCount = count,
+                Spin = spin, SpinLeft = spinLeft, Set = set, Return = back, Submit = submit, Restart = restart, Coverage = coverage, PieceCount = count,
                 Holding = holding, Message = message, SubmitLabel = submitLabel, PhaseLabel = phase, OverlapLabel = overlap,
                 ConflictMarkers = markers, ProgressFill = progress, Audio = audio, CellSize = cellSize
             });

@@ -68,10 +68,11 @@ namespace DeclarativePuzzle.Domain
             return state with { Interaction = held with { Origin = origin } };
         }
 
-        public static GameState Spin(GameState state)
+        public static GameState Spin(GameState state, RotationDirection direction = RotationDirection.Clockwise)
         {
             if (!CanOperate(state) || !(state.Interaction is InteractionState.Holding held)) return state;
-            var rotation = (QuarterTurn)(((int)held.Rotation + 1) % 4);
+            if (direction != RotationDirection.Clockwise && direction != RotationDirection.CounterClockwise) return state;
+            var rotation = (QuarterTurn)(((int)held.Rotation + (int)direction + 4) % 4);
             if (!TryFit(state.Definition, held.PieceId, held.Origin, rotation, out var origin)) return state;
             return state with { Interaction = held with { Origin = origin, Rotation = rotation } };
         }
